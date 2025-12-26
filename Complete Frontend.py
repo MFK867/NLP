@@ -1,0 +1,138 @@
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from nltk import pos_tag
+import pandas as pd
+
+# --------------------- NLP Preprocessing Function ---------------------
+def preprocess_text(text):
+    tokens = word_tokenize(text)
+    tokens = [w.lower() for w in tokens if w.isalpha()]
+
+    stop_words = set(stopwords.words("english"))
+    tokens = [word for word in tokens if word not in stop_words]
+
+    stemmer = PorterStemmer()
+    lemmatizer = WordNetLemmatizer()
+
+    stemmed = [stemmer.stem(w) for w in tokens]
+    lemmatized = [lemmatizer.lemmatize(w) for w in tokens]
+    pos_tags = pos_tag(lemmatized)
+
+    vectorizer_bow = CountVectorizer()
+    X_bow = vectorizer_bow.fit_transform([" ".join(lemmatized)])
+    vocab_bow = vectorizer_bow.get_feature_names_out()
+    bow = X_bow.toarray()
+
+    vectorizer_tfidf = TfidfVectorizer()
+    X_tfidf = vectorizer_tfidf.fit_transform([" ".join(lemmatized)])
+    vocab_tfidf = vectorizer_tfidf.get_feature_names_out()
+    tfidf = X_tfidf.toarray()
+
+    return {
+        "Tokens": tokens,
+        "Stemmed": stemmed,
+        "Lemmatized": lemmatized,
+        "POS Tags": pos_tags,
+        "Bag of Words": (vocab_bow, bow),
+        "TF-IDF": (vocab_tfidf, tfidf)
+    }
+
+# --------------------- Tkinter UI ---------------------
+class NLPApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("NLP Text Preprocessor")
+        self.root.geometry("900x700")
+        self.root.configure(bg="#f5f6fa")
+
+        # Title
+        title = tk.Label(root, text="🧠 NLP Text Preprocessor",
+                         font=("Helvetica", 20, "bold"), bg="#40739e", fg="white", pady=10)
+        title.pack(fill="x")
+
+        # Input Section
+        input_frame = tk.Frame(root, bg="#f5f6fa", pady=10)
+        input_frame.pack(fill="x", padx=20)
+
+        tk.Label(input_frame, text="Enter your text below:",
+                 font=("Arial", 12, "bold"), bg="#f5f6fa").pack(anchor="w")
+
+        self.text_input = scrolledtext.ScrolledText(input_frame, wrap=tk.WORD,
+                                                    width=100, height=6,
+                                                    font=("Consolas", 11))
+        self.text_input.pack(pady=5)
+
+        # Options Section
+        options_frame = tk.LabelFrame(root, text="Select Outputs to Display", font=("Arial", 11, "bold"),
+                                      bg="#f5f6fa", padx=10, pady=10)
+        options_frame.pack(fill="x", padx=20, pady=10)
+
+        self.options = {
+            "Tokens": tk.BooleanVar(value=True),
+            "Stemmed": tk.BooleanVar(),
+            "Lemmatized": tk.BooleanVar(),
+            "POS Tags": tk.BooleanVar(),
+            "Bag of Words": tk.BooleanVar(),
+            "TF-IDF": tk.BooleanVar()
+        }
+
+        for i, (key, var) in enumerate(self.options.items()):
+            tk.Checkbutton(options_frame, text=key, variable=var, font=("Arial", 10),
+                           bg="#f5f6fa").grid(row=0, column=i, padx=10, sticky="w")
+
+        # Process Button
+        process_btn = tk.Button(root, text="🔍 Process Text", font=("Arial", 13, "bold"),
+                                bg="#44bd32", fg="white", relief="raised",
+                                command=self.process_text)
+        process_btn.pack(pady=10)
+
+        # Output Area
+        self.output_area = scrolledtext.ScrolledText(root, wrap=tk.WORD,
+                                                     width=100, height=20,
+                                                     font=("Consolas", 11),
+                                                     bg="#f0f3f5")
+        self.output_area.pack(padx=20, pady=10)
+        self.output_area.insert(tk.END, "Results will appear here...")
+        self.output_area.config(state=tk.DISABLED)
+
+    def process_text(self):
+        text = self.text_input.get("1.0", tk.END).strip()
+        if not text:
+            messagebox.showwarning("No Input", "Please enter some text first.")
+            return
+
+        results = preprocess_text(text)
+        output_lines = []
+
+        for key, show in self.options.items():
+            if show.get():
+                output_lines.append(f"\n=== {key.upper()} ===")
+                if key in ["Tokens", "Stemmed", "Lemmatized"]:
+                    output_lines.append(", ".join(results[key]))
+                elif key == "POS Tags":
+                    output_lines.append(str(results[key]))
+                elif key == "Bag of Words":
+                    vocab, matrix = results[key]
+                    df = pd.DataFrame(matrix, columns=vocab)
+                    output_lines.append(df.to_string(index=False))
+                elif key == "TF-IDF":
+                    vocab, matrix = results[key]
+                    df = pd.DataFrame(matrix, columns=vocab)
+                    output_lines.append(df.to_string(index=False))
+
+        # Display Output
+        self.output_area.config(state=tk.NORMAL)
+        self.output_area.delete("1.0", tk.END)
+        self.output_area.insert(tk.END, "\n".join(output_lines))
+        self.output_area.config(state=tk.DISABLED)
+
+# --------------------- Run App ---------------------
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = NLPApp(root)
+    root.mainloop()
