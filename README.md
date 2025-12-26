@@ -1,2 +1,1 @@
-# Sentiment-Text-Classification-for-Restaurant-Reviews
-Sentiment/Text Classification for Restaurant Reviews by using python
+All the work done this semester in Natural Language Processing subject
